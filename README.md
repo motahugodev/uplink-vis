@@ -1,6 +1,6 @@
 # vis-vue
 
-This template should help get you started developing with Vue 3 in Vite.
+Vis js, using Vue 4 applying render with SVG cards and creating minimap with zoom in, out, zoom percentage and minimap with search option.
 
 ## Recommended IDE Setup
 
