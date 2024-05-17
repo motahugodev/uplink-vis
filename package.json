@@ -11,6 +11,7 @@
     "format": "prettier --write src/"
   },
   "dependencies": {
+    "vis-data": "^7.1.9",
     "vis-network": "^9.1.9",
     "vue": "^3.4.15",
     "vue-router": "^4.2.5"

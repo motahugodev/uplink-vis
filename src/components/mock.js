@@ -5,7 +5,8 @@ export default [
     adm: false,
     federalEmployee: false,
     badges: '',
-    cnpj: '92.242.715/0001-79'
+    cnpj: '92.242.715/0001-79',
+    name: 'Hugo'
   },
   {
     entity: 'legalPerson',
@@ -13,7 +14,8 @@ export default [
     adm: true,
     federalEmployee: false,
     badges: 'PEP',
-    cnpj: '92.242.715/0001-79'
+    cnpj: '92.242.715/0001-79',
+    name: 'Ana'
   },
   {
     entity: 'branch',
@@ -21,7 +23,8 @@ export default [
     adm: true,
     federalEmployee: false,
     badges: '',
-    cnpj: '92.242.715/0001-79'
+    cnpj: '92.242.715/0001-79',
+    name: 'Raisa'
   },
   {
     entity: 'naturalPerson',

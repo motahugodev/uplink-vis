@@ -1,5 +1,6 @@
 <script setup>
 import { Network } from 'vis-network'
+import { DataSet } from 'vis-data'
 import 'vis-network/styles/vis-network.css'
 
 import { onMounted, ref, computed, nextTick } from 'vue'
@@ -9,30 +10,37 @@ import mock from '@/components/mock.js'
 
 const visRender = ref()
 const network = ref(null)
+const data = ref({
+  nodes: [],
+  edges: []
+})
 const minimapWrapper = ref()
 const minimapImage = ref(null)
 const minimapRadar = ref(null)
+const isPreview = ref(false)
 const ratio = 5
 const zoomstep = 0.5
+
+const options = ref({
+  physics: {
+    enabled: false,
+    maxVelocity: 80,
+    timestep: 2
+  },
+  edges: { smooth: false }
+})
+
+const isGrid = ref(false)
+
 var targetScale
 
-const url = (item) => {
-  return (
-    'data:image/svg+xml;charset=utf-8,' +
-    encodeURIComponent(
-      CardComponent({
-        cnpj: item.cnpj,
+const onCard = (item) => {
+  const createCard = CardComponent({
+    cnpj: item.cnpj,
+    color: propsCard(item.entity, item.entityStatus, item.adm, item.federalEmployee, item.badges)
+  })
 
-        color: propsCard(
-          item.entity,
-          item.entityStatus,
-          item.adm,
-          item.federalEmployee,
-          item.badges
-        )
-      })
-    )
-  )
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(createCard)
 }
 
 const propsCard = (entity, entityStatus, adm, federalEmployee, badges) => {
@@ -73,9 +81,59 @@ const propsCard = (entity, entityStatus, adm, federalEmployee, badges) => {
   return color
 }
 
+const lineVariation = (child) => {
+  let config = {
+    font: {
+      size: 6,
+      color: '#0f172a',
+      face: 'Arial',
+      // background: '#f1f5f9',
+      align: 'middle',
+      multi: 'html',
+      vadjust: -10
+    },
+    arrows: {
+      middle: {
+        enabled: true,
+        type: 'circle',
+        scaleFactor: 0.5
+      }
+    },
+    dashes: false
+  }
+
+  if (child) {
+    config.arrows.to = {
+      enabled: true,
+      type: 'arrow',
+      scaleFactor: 0.5
+    }
+    config.dashes = true
+  }
+  return config
+}
+
+const nodesConfig = (item, index) => {
+  const size = {
+    card: 30,
+    circle: 10
+  }
+
+  const mode = isPreview.value
+    ? { label: null, image: onCard(item), shape: 'image', size: size.card }
+    : { label: item?.name, shape: 'dot', size: size.circle }
+
+  const config = {
+    ...item,
+    ...mode,
+    id: index
+  }
+  return config
+}
+
 const formatArray = () => {
   const nodes = mock.map((item, index) => {
-    return { ...item, id: index, image: url(item), shape: 'image' }
+    return nodesConfig(item, index)
   })
 
   const edges = mock
@@ -83,7 +141,9 @@ const formatArray = () => {
       return {
         from: 1,
         to: index,
-        length: 300,
+        length: 400,
+        label: `<b>TESTE</b>`,
+        ...lineVariation(item.adm),
         color: propsCard(
           item.entity,
           item.entityStatus,
@@ -163,9 +223,8 @@ const drawMinimapWrapper = () => {
   minimapWrapper.value.style.width = `${width}px`
   minimapWrapper.value.style.height = `${height}px`
 }
-// Draw minimap Image
+
 const drawMinimapImage = () => {
-  // nextTick(() => {
   const originalCanvas = visRender.value.getElementsByTagName('canvas')[0]
 
   const { clientWidth, clientHeight } = network.value.body.container
@@ -179,10 +238,12 @@ const drawMinimapImage = () => {
   if (tempContext) {
     tempContext.drawImage(originalCanvas, 0, 0, width, height)
     minimapImage.value.src = tempCanvas.toDataURL()
+    console.log('🚀 ~ drawMinimapImage ~ minimapImage.value.src:', minimapImage.value.src)
+
     minimapImage.value.width = width
     minimapImage.value.height = height
+    tempContext.save()
   }
-  // })
 }
 
 const drawRadar = () => {
@@ -206,7 +267,7 @@ const undimMinimap = () => {
   minimapWrapper.value.classList.add('minimapWrapperMove')
 }
 
-const initMinimap = () => {
+const initMinimap = (is) => {
   const { clientWidth, clientHeight } = network.value.body.container
   const width = Math.round(clientWidth / ratio)
   const height = Math.round(clientHeight / ratio)
@@ -219,7 +280,7 @@ const initMinimap = () => {
 
     setTimeout(() => {
       drawMinimapImage()
-    }, 100)
+    }, 200)
 
     drawRadar()
     targetScale = network.value.view.targetScale
@@ -229,17 +290,59 @@ const initMinimap = () => {
   ) {
     minimapImage.value.removeAttribute('src')
     drawMinimapWrapper()
+
     network.value.fit()
   } else {
+    if (!is) {
+      // setTimeout(() => {
+        drawMinimapImage()
+      // }, 200)
+    }
+
     drawRadar()
   }
 }
+
+const createGrid = (ctx) => {
+  if (!isGrid.value) return
+
+  const width = ctx.canvas.clientWidth
+  const height = ctx.canvas.clientHeight
+  const spacing = 60
+  const gridExtentFactor = 24
+  const lineColor = 'lightgrey'
+  ctx.strokeStyle = lineColor
+
+  ctx.beginPath()
+
+  for (var x = -width * gridExtentFactor; x <= width * gridExtentFactor; x += spacing) {
+    ctx.moveTo(x, height * gridExtentFactor)
+    ctx.lineTo(x, -height * gridExtentFactor)
+  }
+
+  for (var y = -height * gridExtentFactor; y <= height * gridExtentFactor; y += spacing) {
+    ctx.moveTo(width * gridExtentFactor, y)
+    ctx.lineTo(-width * gridExtentFactor, y)
+  }
+
+  ctx.stroke()
+}
+
+const activeGrid = () => (isGrid.value = !isGrid.value)
+
 const eventsVis = () => {
   network.value.on('resize', () => network.value.fit())
   network.value.on('dragStart', () => undimMinimap())
-  network.value.on('dragEnd', () => dimMinimap())
+  network.value.on('dragEnd', () => {
+    dimMinimap()
+    // updateOptions()
+  })
   network.value.on('zoom', () => undimMinimap())
-  network.value.on('afterDrawing', () => initMinimap())
+  network.value.on('afterDrawing', () => initMinimap(true))
+  network.value.on('beforeDrawing', (ctx) => {
+    // ctx = grid.value.context
+    createGrid(ctx)
+  })
 }
 
 const moveMinimap = (e) => {
@@ -253,22 +356,35 @@ const moveMinimap = (e) => {
   }
 }
 
+const modePrewiew = () => {
+  isPreview.value = isPreview.value = !isPreview.value
+  data.value.nodes.update(formatArray().nodes)
+  initMinimap()
+}
+
 const initVis = async () => {
-  const options = {
-    physics: { stabilization: false },
-    edges: { smooth: false },
-    interaction: {
-      navigationButtons: true,
-      keyboard: true
-      // dragNodes: false,
-    }
+  data.value = {
+    nodes: new DataSet(formatArray().nodes),
+    edges: new DataSet(formatArray().edges)
   }
-  network.value = new Network(visRender.value, formatArray(), options)
+  network.value = new Network(visRender.value, data.value, options.value)
 
   await nextTick(() => {
     initMinimap()
     eventsVis()
   })
+}
+
+const updateReorganize = () => {
+  const time = 250
+  options.value.physics.enabled = true
+
+  network.value.setOptions(options.value)
+
+  setTimeout(() => {
+    options.value.physics.enabled = false
+    network.value.setOptions(options.value)
+  }, time)
 }
 
 onMounted(() => {
@@ -283,27 +399,27 @@ onMounted(() => {
   <button @click="zoomIn()">Zoom In</button>
   <button @click="zoomOut()">Zoom Out</button>
   <button @click="zoomDefault()">Zoom Default</button>
+  <button @click="activeGrid()">Grid</button>
+  <button @click="updateReorganize()">Reoganizar</button>
+  <button @click="modePrewiew()">{{ isPreview ? 'Modo Card' : 'Modo Simples' }}</button>
 
-  <div>
-    <div
-      @mousemove="moveMinimap"
-      @click="moveMinimap"
-      @mouseup="dimMinimap()"
-      ref="minimapWrapper"
-      style="
-        position: absolute;
-        margin: 5px;
-        border: 1px solid #ddd;
-        overflow: hidden;
-        background-color: #fff;
-        z-index: 9;
-      "
-      class="minimapWrapperIdle"
-    >
-      <img ref="minimapImage" class="minimapImage" />
-      <div ref="minimapRadar" class="minimapRadar"></div>
-      <!-- <img :src="teste" alt="" srcset=""> -->
-    </div>
+  <div
+    @click="moveMinimap"
+    @mousemove="moveMinimap"
+    @mouseup="dimMinimap()"
+    ref="minimapWrapper"
+    style="
+      position: absolute;
+      margin: 5px;
+      border: 1px solid #ddd;
+      overflow: hidden;
+      background-color: #fff;
+      z-index: 9;
+    "
+    class="minimapWrapperIdle"
+  >
+    <img ref="minimapImage" class="minimapImage" />
+    <div ref="minimapRadar" class="minimapRadar"></div>
   </div>
 </template>
 
@@ -312,8 +428,13 @@ onMounted(() => {
   width: 100%;
   height: 600px;
   border: 1px solid lightgray;
-  background-color: #eeeeee;
+  background-color: #f3f4f6;
+  z-index: 0;
 }
+canvas {
+  height: 100%;
+}
+
 .minimapRadar {
   position: absolute;
   background-color: rgba(16, 84, 154, 0.26);
