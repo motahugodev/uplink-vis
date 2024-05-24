@@ -1,4 +1,4 @@
-# vis-vue
+# Vis.js - Vue 3
 
 Vis js, using Vue 4 applying render with SVG cards and creating minimap with zoom in, out, zoom percentage and minimap with search option.
 
